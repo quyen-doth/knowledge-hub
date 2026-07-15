@@ -46,6 +46,8 @@ Không sử dụng Cloudflare Queues trong phase 1; D1 và state machine của `
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Thiết kế kỹ thuật và quyết định phase 1 |
 | [`docs/prompt.md`](docs/prompt.md) | Đầu vào lịch sử, không phải specification hoàn chỉnh |
 | [`docs/REFERENCE.md`](docs/REFERENCE.md) | Tham chiếu vận hành và kiến trúc ngắn gọn |
+| [`docs/API.md`](docs/API.md) | HTTP, auth và external integration contracts |
+| [`docs/DATABASE.md`](docs/DATABASE.md) | D1 schema, state machine và migration rules |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Git workflow và quy tắc đóng góp |
 | [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | Chiến lược kiểm chứng |
 
