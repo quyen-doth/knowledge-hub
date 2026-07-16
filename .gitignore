@@ -21,6 +21,9 @@ coverage/
 # Local agent preferences
 .claude/settings.local.json
 
+# Plan working documents (kept out of Git)
+plans/
+
 # Test artifacts
 playwright-report/
 test-results/
