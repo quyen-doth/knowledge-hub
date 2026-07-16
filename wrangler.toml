@@ -1,0 +1,14 @@
+name = "knowledge-hub"
+main = "src/index.ts"
+compatibility_date = "2026-07-16"
+workers_dev = true
+send_metrics = false
+
+[triggers]
+crons = ["0 * * * *", "*/5 * * * *", "0 22 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "knowledge-hub"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

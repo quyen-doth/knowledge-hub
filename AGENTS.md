@@ -12,7 +12,7 @@ Main flow:
 
 `Watcher / LINE / bookmarklet -> articles(status=new) -> processor -> extract -> LLM -> Obsidian -> LINE -> AnkiFlow -> processed`
 
-Git is initialized, but this repository is currently documentation/configuration-only. There is no application scaffold, package manifest, migration, or test suite yet. Do not describe planned files or commands as existing until they have been created and verified.
+Git and the Phase 1 application foundation are initialized: the repository has a Workers/Hono entry point, Bun package manifest and lockfile, D1 migration, admin-session scaffold, and Worker integration tests. Watcher, processor, external integrations, and the complete admin UI remain unimplemented until their corresponding phases are verified. Do not describe later planned modules as existing.
 
 ## Sources of Truth
 
