@@ -1,152 +1,65 @@
 ---
 name: api
-description: >
-  Create or modify API endpoints in ankiflow (Next.js App Router route handlers).
-  Use when: user mentions @api, adds a new endpoint, changes a response type,
-  adds validation, or asks about the current API conventions.
-  Do NOT use for UI or components.
+description: Create or modify Knowledge Hub HTTP routes, webhooks, admin form actions, or external API clients. Use for Hono routing, authentication, validation, response contracts, and integration error handling.
 ---
 
-# Skill: API Development
+# API Development
 
-## Goal
-Every endpoint created or modified must be consistent with `docs/API.md`
-— correct format, correct error handling, correct auth layer, reusing existing helpers.
+## Required context
 
----
+Read, in order:
 
-## Step 1 — Required context
+1. `AGENTS.md`
+2. `docs/API.md`
+3. The relevant section of `docs/ARCHITECTURE.md`
+4. Existing routes, schemas, services, types, and tests once they exist
 
-1. `docs/API.md` — full list of existing endpoints, standard response format, error codes
-2. `lib/auth-guard.ts` — `withAuth`, `verifySessionUser`, `verifyStaticToken`
-3. `lib/api-response.ts` — standard response helpers (`apiSuccess`, `apiError`, `catchError`)
-4. `lib/validation.ts` — zod schemas + `parseBody` helper
-5. `lib/firestore-helpers.ts` — `withTimestamps` for created_at/updated_at
+Executable code and tests override planned documentation. If they differ, report the mismatch and update the appropriate source in the same change.
 
-> Check whether a similar endpoint already exists before creating a new one.
-> This is plain Next.js (App Router) — there is **no Fastify** in this project.
+## Process
 
----
+1. Identify the route/client, caller, trust boundary, auth mechanism, and external side effects.
+2. Trace similar code before introducing a helper or response shape.
+3. Define or reuse a zod schema at the inbound/outbound boundary.
+4. Keep the Hono handler thin: parse/authenticate, call a service, map the typed result to a response.
+5. Put database logic in query helpers and provider logic in its dedicated client.
+6. Classify errors as retryable, non-retryable, or configuration failures.
+7. Add focused tests for success, invalid input, auth failure, duplicate/idempotent behavior, timeout, and partial failure.
+8. Update `docs/API.md` when the route, payload, auth, status, or retry contract changes.
 
-## Step 2 — Auth layers (MUST pick the right one)
+## Project rules
 
-Auth is Firebase **session cookie** (`__session`, httpOnly). Middleware only checks the
-cookie *exists*; real verification happens per-route in `lib/auth-guard.ts`.
+- Use Cloudflare-compatible `Request`, `Response`, `fetch`, Web Crypto, and AbortSignal APIs.
+- Do not add Node HTTP/filesystem assumptions to Worker runtime code.
+- Do not invent a response envelope without updating `docs/API.md` and locking it with tests.
+- Validate URLs and reject non-HTTP(S) schemes or embedded credentials.
+- Compare static tokens safely in constant time, including unequal-length input.
+- Redact secrets, signatures, cookies, article bodies, and third-party payloads from logs.
+- Every outbound request needs a timeout and typed error classification.
 
-| Route kind | Mechanism |
+## Auth matrix
+
+| Surface | Required mechanism |
 | --- | --- |
-| Normal authenticated routes (entries, history, admin master-data CRUD...) | `withAuth(handler(req, ctx, uid))` — verifies the session cookie (`verifySessionCookie`, checkRevoked) and passes `uid` as the 3rd argument; returns 401 `{ error: 'Unauthorized' }` if invalid |
-| Admin-gated routes (`/api/admin/global-config`, `/api/notifications/send`) | `verifySessionUser(req)` → additionally check `email === process.env.ADMIN_EMAIL` → 403 otherwise |
-| Cron / external integrations (`/api/cron/*`, `/api/integrations/*`) | `verifyStaticToken(provided, expected)` — timing-safe static token compare, no cookie |
-| Unauthenticated | only `/api/auth/*` and `/api/notifications/line-webhook` (excluded in `middleware.ts`) |
+| `POST /line/webhook` | HMAC-SHA256 over the exact raw body before JSON parsing |
+| `POST /api/ingest` | `x-ingest-token` |
+| `GET /ingest` | Phase-1 query token; never reuse this pattern elsewhere |
+| `/admin/*` | HMAC-signed session cookie plus same-origin/CSRF defense for mutations |
+| AnkiFlow client | `x-integration-token` |
 
-There is **no `x-api-secret` header and no `withAuthGuard`** — those belonged to an old version.
+## Critical integration behavior
 
-**Per-user data:** server writes MUST set `user_id: uid`; queries on per-user collections
-MUST filter by `user_id` (see the `database` skill).
+- LINE irrelevant events return 200 without side effects.
+- Duplicate ingestion is idempotent and must not create a second article.
+- AnkiFlow 400 and 422 are non-retryable validation failures; 401 is configuration failure; 429, timeout, and 5xx are retryable.
+- Knowledge Hub submits term drafts only and never triggers a second enrichment pass.
+- Real LINE, GitHub vault, Anthropic, or AnkiFlow writes require explicit scope/authorization and never run in automated tests.
 
----
+## Completion checklist
 
-## Step 3 — Required conventions
-
-### Naming:
-```
-GET    /api/[resource]          ← list (filters via query params)
-GET    /api/[resource]/[id]     ← single item
-POST   /api/[resource]          ← create
-PUT    /api/[resource]          ← update (id in body, no [id] segment)
-DELETE /api/[resource]?id=...   ← delete/deactivate (id via query param)
-```
-
-### Standard response format (per `lib/api-response.ts` and `docs/API.md`):
-```typescript
-// Success — apiSuccess(data, status?)
-{ ...data }              // e.g. { categories: [...] }, { success: true, id: '...' }
-
-// Error — apiError(message, status) or catchError(error)
-{ error: string }         // NO "code" field
-```
-
-### Common HTTP status codes:
-```
-200 OK / 201 Created   ← success
-400 Bad Request        ← parseBody validation failure
-401 Unauthorized       ← missing/invalid session cookie (withAuth)
-403 Forbidden          ← authenticated but not admin (ADMIN_EMAIL check)
-404 Not Found          ← resource does not exist
-500 Internal Error     ← catchError default
-```
-
----
-
-## Step 4 — Boilerplate (matches the real pattern, e.g. `app/api/admin/categories/route.ts`)
-
-```typescript
-// app/api/[resource]/route.ts
-
-import { NextRequest } from 'next/server'
-import { withAuth } from '@/lib/auth-guard'
-import { getAdminDb } from '@/lib/firebase-admin'
-import { withTimestamps } from '@/lib/firestore-helpers'
-import { apiSuccess, apiError, catchError } from '@/lib/api-response'
-import { parseBody, ResourceSchema } from '@/lib/validation'
-
-async function GET_handler(request: NextRequest, _ctx: unknown, uid: string) {
-  try {
-    const db = getAdminDb()
-    const snapshot = await db.collection('resource').where('user_id', '==', uid).get()
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    return apiSuccess({ items })
-  } catch (error) {
-    return catchError(error)
-  }
-}
-
-async function POST_handler(request: NextRequest, _ctx: unknown, uid: string) {
-  try {
-    const parsed = parseBody(ResourceSchema, await request.json())
-    if (!parsed.ok) return parsed.response
-
-    const db = getAdminDb()
-    const docRef = await db.collection('resource').add(
-      withTimestamps({ ...parsed.data, user_id: uid }, true)
-    )
-    return apiSuccess({ success: true, id: docRef.id }, 201)
-  } catch (error) {
-    return catchError(error)
-  }
-}
-
-export const GET = withAuth(GET_handler)
-export const POST = withAuth(POST_handler)
-```
-
----
-
-## Step 5 — Checklist before finishing
-
-- [ ] Input validation uses `parseBody` + a zod schema (schema lives in `lib/validation.ts`)?
-- [ ] Error handling uses `catchError`/`apiError` (no hand-rolled `NextResponse.json`)?
-- [ ] Response shape matches `apiSuccess`/`apiError` (no `code` field)?
-- [ ] Correct auth layer chosen (withAuth / ADMIN_EMAIL check / verifyStaticToken)?
-- [ ] Server writes set `user_id: uid`; per-user queries filter by `user_id`?
-- [ ] Does the new endpoint conflict with an existing one?
-
----
-
-## Step 6 — After creating
-
-```
-✅ Created: POST /api/[resource]
-
-💡 Do you want me to update docs/API.md to register this endpoint?
-```
-
----
-
-## Hard rules
-
-- Do **NOT** create an endpoint before reading `docs/API.md`
-- Do **NOT** reinvent the response/error format — use `apiSuccess`/`apiError`/`catchError`
-- Do **NOT** call AnkiConnect from the server — it is client-side only (see the `anki-connect` skill)
-- **MUST** have error handling — never let an endpoint throw an uncaught error
+- [ ] Applicable docs and existing code were read.
+- [ ] Input/output schemas and auth are explicit.
+- [ ] Handler delegates business/database/provider work.
+- [ ] Retry and idempotency behavior are tested.
+- [ ] Worker compatibility and secret redaction were reviewed.
+- [ ] `docs/API.md` is synchronized.

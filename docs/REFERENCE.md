@@ -189,6 +189,16 @@ bun run deploy:check
 
 Migration dùng `wrangler d1 migrations`. Deploy production, migration remote và thay đổi secret cần xác nhận ngay trước khi chạy.
 
+## Agent tooling
+
+- `AGENTS.md` là nguồn hướng dẫn chuẩn; `CLAUDE.md` chỉ dẫn Claude đọc nguồn này thay vì sao chép nội dung.
+- `.claude/skills` là nguồn duy nhất của project skills; `.agents/skills` chứa symlink tương đối để Codex dùng cùng nội dung.
+- `.claude/settings.local.json` chứa quyền hoặc hook thông báo cá nhân và bị `.gitignore`; không dùng file này làm policy chung.
+- Claude Code và Codex cùng chạy `scripts/agent-hooks/block-env.mjs` để ngăn truy cập nhầm `.env*` và `.dev.vars*`, nhưng hook chỉ là guardrail hỗ trợ, không thay thế sandbox, permission policy hoặc quản lý secret đúng cách.
+- Codex chỉ tải project-local hook trong trusted project. Sau khi `hooks.json` hoặc script thay đổi, dùng `/hooks` để review và trust lại hash trước khi kỳ vọng hook hoạt động.
+- Notification hooks của Codex giữ nhãn Knowledge Hub nhưng no-op nếu máy không có script thông báo cá nhân; chúng không được coi là policy hoặc dependency bắt buộc của project.
+- Playwright MCP được pin version và chạy isolated để agent kiểm tra admin UI. Đây không phải browser adapter runtime và không phải E2E runner của CI.
+
 ## Giới hạn phase 1
 
 - Không multi-user, reader/highlight UI hoặc archive full page.

@@ -1,15 +1,16 @@
 ---
-description: Open a Pull Request against develop following docs/CONTRIBUTING.md (Japanese title/body, correct template)
+description: Open a pull request against main using the Knowledge Hub conventions
 ---
 
-Open a PR for the current branch following the conventions in `docs/CONTRIBUTING.md`:
+Open a pull request following `AGENTS.md` and `docs/CONTRIBUTING.md`.
 
-1. Confirm the current branch is NOT `develop`/`main` and has commits; push with `git push -u origin <branch>` if not pushed yet
-2. Review `git log develop..HEAD` to summarize all changes in the PR
-3. Create the PR with `gh pr create --base develop`:
-   - Title: format `<type>: 日本語の要約` (same as the commit convention)
-   - Body: follow the structure of `.github/PULL_REQUEST_TEMPLATE.md` — fill in 概要 / 変更内容 / テスト・確認方法 / チェックリスト, written in Japanese
-4. NEVER add "🤖 Generated with Claude Code" footers or any AI attribution to the body
-5. Report back the URL of the created PR
+1. Confirm this is a Git repository and the current branch is not `main`.
+2. Inspect `git status`, `git log main..HEAD`, and `git diff main...HEAD`. Stop if required changes are uncommitted or the branch has no commits.
+3. Run the applicable verification and record exact results. Never claim unavailable commands passed.
+4. Push the current feature branch if needed. Invoking this command counts as a request to publish the branch and open the PR, but do not perform unrelated remote changes.
+5. Create the PR with base `main` and a Conventional Commit title: English type/scope, Vietnamese subject.
+6. Write the body in Vietnamese with these sections: `Tóm tắt`, `Thay đổi`, `Kiểm chứng`, `Rủi ro và giới hạn`, and `Checklist`.
+7. Never add AI attribution, `Co-Authored-By`, or generated-by footers.
+8. Report the PR URL, base/head branches, and any verification that was not run.
 
-Extra user arguments (if any): $ARGUMENTS
+Additional user arguments: `$ARGUMENTS`

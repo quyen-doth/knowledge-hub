@@ -2,7 +2,7 @@
 
 ## Trạng thái repository
 
-Repository hiện chưa được khởi tạo Git và chưa có application scaffold. Tài liệu này định nghĩa workflow sẽ áp dụng khi Git được tạo; không ngụ ý branch protection, CI hoặc Git hooks đã tồn tại.
+Repository đã được khởi tạo Git nhưng chưa có application scaffold. Workflow trong tài liệu này áp dụng ngay cho các thay đổi hiện tại; không ngụ ý branch protection, CI hoặc Git hooks đã được cấu hình nếu chưa có bằng chứng trong repository/remote.
 
 ## Nguyên tắc
 
@@ -12,18 +12,6 @@ Repository hiện chưa được khởi tạo Git và chưa có application scaf
 - Code/test có thể chạy được là nguồn sự thật cao hơn tài liệu; thay đổi contract hoặc schema phải cập nhật tài liệu trong cùng PR.
 - Dùng Bun cho dependency và scripts; không dùng npm hoặc pnpm.
 - Không thêm AI attribution, `Co-Authored-By` tự động hoặc footer “Generated with …”.
-
-## Khởi tạo Git lần đầu
-
-Chỉ thực hiện khi người dùng yêu cầu khởi tạo repository:
-
-```bash
-git init -b main
-git add .gitignore
-git commit -m "chore: khởi tạo repository"
-```
-
-Thiết lập remote, push và branch protection là external side effect, cần xác nhận trước khi thực hiện.
 
 ## Branch workflow
 
@@ -47,6 +35,8 @@ Tên branch dùng prefix và slug tiếng Anh kebab-case:
 | `chore/` | Tooling, dependency, config |
 
 Không tự động `git pull` khi working tree bẩn. Không dùng force push lên branch có người khác cùng làm nếu chưa thống nhất.
+
+Không chạy lại `git init` hoặc thay đổi remote/branch protection như một bước setup thông thường. Mọi thay đổi remote là external side effect và cần nằm trong yêu cầu hiện tại.
 
 ## Conventional Commits
 

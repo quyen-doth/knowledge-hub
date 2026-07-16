@@ -4,7 +4,7 @@ Smart Knowledge Hub là pipeline thu thập và xử lý tri thức dành cho m�
 
 ## Trạng thái hiện tại
 
-Repository đang ở giai đoạn **documentation-first**. Chưa có application scaffold, `package.json`, migration D1, test suite hoặc Git worktree. Các lệnh phát triển bên dưới là contract dự kiến cho giai đoạn scaffold, chưa phải lệnh đã được kiểm chứng.
+Repository đã được khởi tạo Git nhưng vẫn ở giai đoạn **documentation-first**. Chưa có application scaffold, `package.json`, migration D1 hoặc test suite. Các lệnh phát triển bên dưới là contract dự kiến cho giai đoạn scaffold, chưa phải lệnh đã được kiểm chứng.
 
 Nguồn thiết kế chính là [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). [`docs/prompt.md`](docs/prompt.md) chỉ lưu đầu vào ban đầu và kết thúc giữa phần LINE, vì vậy không được dùng để thay thế tài liệu kiến trúc.
 

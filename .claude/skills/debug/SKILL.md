@@ -1,50 +1,50 @@
 ---
 name: debug
-description: >
-    Debug and fix errors in ankiflow. Use when: user mentions @debug,
-    pastes an error message, describes unexpected behavior, asks "why doesn't X work",
-    or reports unexpected output. Find the root cause before fixing.
+description: Diagnose Knowledge Hub failures in Workers, Hono routes, D1 state, scheduled jobs, adapters, LLM parsing, external clients, or tests. Use when behavior is incorrect or verification fails.
 ---
 
-# Skill: Debug
+# Debugging
 
-## When to use
+## Method
 
-Apply this skill at Step 6b of the mandatory workflow when Vitest or Playwright tests fail.
+1. Reproduce the smallest failing case and record the exact command/request, input class, expected behavior, actual behavior, and relevant state.
+2. Classify the failure before editing: configuration, Worker runtime, route/auth, D1/query/state, extraction/adapter, provider contract, rendering, or test harness.
+3. Trace the failing boundary from caller to persisted/external effect. Inspect structured errors and redacted state; do not dump secrets or complete article bodies.
+4. Form one testable root-cause hypothesis. Add or tighten a regression test that fails for the right reason.
+5. Apply the narrowest fix without opportunistic refactoring.
+6. Run the regression test, related suite, then full applicable verification.
+7. Report root cause, fix, evidence, and any remaining uncertainty.
 
-## Process
+## Project-specific checks
 
-### 1. Identify failure type
+### Scheduled/processor failures
 
-| Symptom                  | Likely cause                                           |
-| ------------------------ | ------------------------------------------------------ |
-| TypeScript compile error | Type mismatch, missing import, wrong enum value        |
-| Vitest assertion fail    | Logic error, wrong mock, incorrect expected value      |
-| Playwright timeout       | Element not found, wrong selector, async timing issue  |
-| Firestore error          | Wrong collection path, missing field, permission issue |
-| AnkiConnect error        | Anki Desktop not open, malformed note payload          |
+- Did the invocation win the atomic claim?
+- Is `updated_at` being refreshed at each checkpoint?
+- Is retry classification correct and below the cap?
+- Which of analysis, Obsidian, LINE, and AnkiFlow checkpoints already exists?
+- Could a crash after an external success cause a duplicate effect?
 
-### 2. Reproduce locally
+### Adapter/extraction failures
 
-- Always reproduce the failure before attempting a fix
-- For Playwright: run with `--headed` flag to observe browser behavior
-- For Vitest: run with `--reporter=verbose` to see full output
+- Compare live DOM only when authorized/network is available, then reproduce with a dated local fixture.
+- Distinguish `SELECTOR_SUSPECT`, HTTP blocking, malformed feed, canonical redirect, and `EXTRACT_TOO_SHORT`.
+- Do not implement the phase-2 browser adapter as a shortcut.
 
-### 3. Isolate the root cause
+### API/auth failures
 
-- Read the full stack trace — do not guess from the error message alone
-- Check if the failure is in: application code, test code, or test setup
-- If Firestore-related: re-read `docs/DATABASE.md` before changing anything
+- Verify raw-body handling for LINE before JSON parsing.
+- Check constant-time token comparison and missing binding behavior.
+- Confirm Hono middleware and route-specific auth are not being confused.
 
-### 4. Fix
+### External client failures
 
-- Fix only the root cause — do not refactor unrelated code
-- If the fix requires changing an API contract, re-read `docs/API.md`
-- If the fix changes a Firestore schema field, update `docs/DATABASE.md`
+- Preserve HTTP status, timeout, provider error class, and retryability without logging credentials.
+- Mock the exact failure in tests; do not use a real LINE message, vault write, Anthropic call, or AnkiFlow draft as a debugging shortcut.
 
-### 5. Verify fix
+## Hard rules
 
-- Re-run the failing test(s) first
-- Then run full suite: `npm run verify`
-- Then re-run Playwright tests
-- All must pass before exiting the debug loop
+- Do not weaken validation, auth, tests, or retry limits to make a failure disappear.
+- Do not reset/delete D1 data without explicit authorization.
+- Do not claim a root cause until the evidence distinguishes it from plausible alternatives.
+- Update API/database/verification docs if the diagnosed behavior changes a contract.

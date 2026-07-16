@@ -12,7 +12,7 @@ Main flow:
 
 `Watcher / LINE / bookmarklet -> articles(status=new) -> processor -> extract -> LLM -> Obsidian -> LINE -> AnkiFlow -> processed`
 
-This repository is currently documentation-only. There is no application scaffold, package manifest, migration, test suite, or Git worktree yet. Do not describe planned files or commands as existing until they have been created and verified.
+Git is initialized, but this repository is currently documentation/configuration-only. There is no application scaffold, package manifest, migration, or test suite yet. Do not describe planned files or commands as existing until they have been created and verified.
 
 ## Sources of Truth
 
@@ -173,6 +173,7 @@ Run the narrowest relevant tests first, then the full suite. Report commands and
 
 ## Documentation and Review
 
+- Editing files under `docs/` requires user approval in the active request. PreToolUse guards enforce this (`scripts/agent-hooks/docs-guard.mjs`): Claude Code prompts for approval; Codex is blocked and must ask in chat before retrying.
 - Keep `docs/ARCHITECTURE.md` synchronized with deliberate architecture or contract changes.
 - Treat `docs/prompt.md` as historical input; do not expand it into a second competing specification.
 - Do not rewrite product decisions or phase boundaries as an incidental code change. Surface the proposed decision and its consequences first.
@@ -191,7 +192,3 @@ Run the narrowest relevant tests first, then the full suite. Report commands and
 8. **Report**: summarize changed files, behavior, test results, limitations, and any external action that was intentionally not performed.
 
 Ordinary edits explicitly requested by the user do not need a second approval. Approval is required for the guarded side effects above and whenever the requested scope materially changes.
-
-## Temporary Configuration Warning
-
-The `.claude/` and `.codex/` directories are still being migrated from AnkiFlow. Until that migration is completed, ignore instructions about Next.js, Firebase, Firestore, AnkiConnect, npm, the `develop` branch, Japanese documentation, or personal absolute paths. This `AGENTS.md` and the sources listed above take precedence over those copied files.

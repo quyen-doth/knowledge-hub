@@ -1,97 +1,48 @@
 ---
 name: update-docs
-description: >
-  Sync the documentation in docs/ after code changes. Use when:
-  user mentions @update-docs, an API endpoint was added/changed/removed,
-  a component was created or modified, a data model or schema changed,
-  a task status changed, or the design system / conventions changed.
-  Do NOT update docs when no real code change happened.
+description: Create or update Knowledge Hub documentation after implementation, contract, architecture, workflow, or operational changes. Use to keep README and docs synchronized without duplicating sources of truth.
 ---
 
-# Skill: Update Docs
+# Documentation Updates
 
-## Goal
-Keep `docs/` the **source of truth** that accurately reflects the current
-state of the codebase — nothing extra, nothing missing, nothing stale.
+## Language and authority
 
-> Files in `docs/` are written in **Japanese** (see Language Policy in CLAUDE.md).
+- Project documentation (`README.md`, `docs/`) is written in Vietnamese.
+- Agent/config/skills/commands are written in English.
+- Preserve literal external field names, error codes, commands, and API payloads.
+- Executable code, migrations, types, and tests override stale documentation.
+- `docs/ARCHITECTURE.md` records accepted decisions; `docs/prompt.md` is incomplete historical input and is not a living specification.
 
----
+## Document map
 
-## Mapping: which change → which file
+| Change | Primary document |
+| --- | --- |
+| Project status, setup, env, runbook | `README.md` |
+| Architecture decision or phase boundary | `docs/ARCHITECTURE.md` |
+| Operational/architecture quick reference | `docs/REFERENCE.md` |
+| HTTP/auth/payload/status/retry contract | `docs/API.md` |
+| D1 table/column/enum/state/migration | `docs/DATABASE.md` |
+| Git and contribution workflow | `docs/CONTRIBUTING.md` |
+| Verification layer/scenario/evidence | `docs/VERIFICATION.md` |
+| Durable agent behavior | `AGENTS.md`, `.claude/`, `.codex/` |
 
-| Change type                                        | File to update         |
-|----------------------------------------------------|------------------------|
-| Add / modify / remove API endpoint                 | `docs/API.md`          |
-| Firestore schema, query pattern, enum change       | `docs/DATABASE.md`     |
-| Design tokens, component patterns, layout, theme   | `docs/DESIGN.md`       |
-| Directory structure, data flow, env vars           | `docs/REFERENCE.md`    |
-| Verification spec format / harness change          | `docs/VERIFICATION.md` |
-| Git workflow / conventions change                  | `docs/CONTRIBUTING.md` |
-| Change business logic / major scope                | `docs/PRD.md`          |
-
-> **Principle:** update only the relevant file. Do not touch the others.
-
----
+Keep the detailed fact in one authoritative document and link from summaries. Do not copy the full schema or payload into every file.
 
 ## Process
 
-### Step 1 — Read & analyze
-1. Read the docs file(s) related to the change (per the mapping above)
-2. Read the changed code files to understand exactly what changed
-3. Classify: addition / modification / removal / rename?
+1. Read the changed implementation, tests, current docs, and source decision.
+2. Identify current-state facts versus planned behavior.
+3. Update the narrowest authoritative document and any summary/link that would otherwise become misleading.
+4. Preserve headings/anchors when practical and remove obsolete instructions rather than appending contradictions.
+5. Check local links, code fences, language policy, commands, paths, and terminology.
+6. Report what changed and any unresolved mismatch.
 
-### Step 2 — Create a proposal (do NOT write immediately)
-Produce a **diff proposal** in this form:
-
-```
-📋 DOCS UPDATE PROPOSAL
-========================
-File: docs/API.md
-
-[ADD]
-### POST /api/cards
-...proposed content...
-
-[MODIFY]
-Old: GET /api/decks → returns array
-New: GET /api/decks → returns { data: Deck[], total: number }
-
-[REMOVE]
-### DELETE /api/legacy-sync  ← endpoint was removed
-```
-
-### Step 3 — Wait for confirmation
-**STOP** and ask the user:
-> "Do you want me to apply these changes to `docs/API.md`?"
-
-Continue only after the user confirms with **"ok"** or **"apply"**.
-
-### Step 4 — Apply & report
-1. Write the changes into the correct docs file (in Japanese)
-2. Report briefly:
-   ```
-   ✅ Updated: docs/API.md
-   - Added: POST /api/cards
-   - Modified: response type of GET /api/decks
-   - Removed: DELETE /api/legacy-sync
-   ```
-
----
+Routine documentation synchronized with an explicitly requested implementation does not require a second approval. Ask for a decision only when updating docs would create/change product behavior, architecture, public contract, destructive migration policy, or phase scope.
 
 ## Hard rules
 
-- Do **NOT** update `docs/PRD.md` unless the user explicitly asks — it holds product decisions, not technical specs
-- Do **NOT** delete docs content without quoting it to the user first
-- Do **NOT** rewrite whole files — make surgical edits to the relevant section only
-- **MUST** preserve each file's existing format and heading structure
-- If unsure which file a change belongs to → ask the user first
-
----
-
-## Natural trigger examples
-
-- *"just finished the create-card endpoint"* → update `docs/API.md`
-- *"added a field to entries"* → update `docs/DATABASE.md`
-- *"@update-docs"* → ask: what change just happened?
-- *"the Button component styling changed"* → update `docs/DESIGN.md`
+- Do not claim planned commands, routes, migrations, tests, CI, or deployment are implemented.
+- Do not add dates/status claims without evidence.
+- Do not place secrets, personal absolute paths, real tokens, or production bookmarklets in docs.
+- Do not rewrite `docs/prompt.md` to make it appear complete.
+- Do not retain copied AnkiFlow assumptions unless they describe the intentional integration boundary.

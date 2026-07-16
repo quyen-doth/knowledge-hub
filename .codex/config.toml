@@ -1,3 +1,5 @@
 [mcp_servers.playwright]
-command = "npx"
-args = ["@playwright/mcp@latest"]
+command = "bunx"
+args = ["@playwright/mcp@0.0.78", "--isolated"]
+startup_timeout_sec = 20.0
+tool_timeout_sec = 60.0

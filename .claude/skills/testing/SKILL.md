@@ -1,77 +1,56 @@
 ---
 name: testing
-description: >
-    Write and run tests in ankiflow (Vitest unit/verification specs, Playwright E2E).
-    Use when: user mentions @testing, or at Step 5 / Step 6a of the mandatory workflow.
+description: Write, run, or review Knowledge Hub tests for Workers/Hono/D1, adapters, processor state, integrations, admin SSR, security, and deployment checks.
 ---
 
-# Skill: Testing
+# Testing
 
-## When to use
+## Source of truth
 
-Apply this skill at Step 5 and Step 6a of the mandatory workflow.
+Read `docs/VERIFICATION.md` and the relevant API/database contracts before adding tests. Use existing scripts and layout once they exist; do not invent successful commands in a documentation-only repository.
 
-## Vitest — Unit & Verification Tests
+## Test layers
 
-### Location
+### Unit
 
-`ankiflow/verify/` — follow the spec format in `docs/VERIFICATION.md`
+Use for pure behavior: URL normalization, retry classification, state transitions, zod schemas, slug/frontmatter escaping, feed parsing, LINE signatures, LLM tool parsing, and payload mapping.
 
-### Run commands
+### Worker integration
 
-```bash
-npm run verify          # Run all specs once
-npm run verify:watch    # Watch mode during development
-```
+Use Vitest with `@cloudflare/vitest-pool-workers` for Hono routes, bindings, D1 migrations/queries, scheduled dispatch, atomic claims, stale recovery, and admin actions.
 
-### What to test
+### Contract mocks
 
-- Every function with branching logic
-- All FormType-dependent behavior (LANGUAGE / IT / GENERAL)
-- All Firestore read/write helpers
-- All AI agent tool calls (mock the Anthropic SDK)
-- Enum usage — never test with raw string literals
+Mock `fetch` at the provider boundary and assert request shape plus error classification for Anthropic, GitHub, LINE, and AnkiFlow. Include 400/422/401/429/5xx and timeout cases as applicable.
 
-### What NOT to test
+### Admin E2E
 
-- Next.js framework internals
-- Firebase SDK internals
-- Third-party API responses (mock them instead)
+Use local Wrangler/D1 with mocked external clients. Test auth/session tampering, same-origin protection, source Test-without-insert, pagination/filtering, retry actions, settings validation, and escaped rendering.
 
-### Mock conventions
+## Required failure scenarios
 
-- Mock `firebase-admin` at module level, not inside individual tests
-- Mock Anthropic SDK responses as tool-use blocks matching the real schema
-- Use `vi.mock()` — never mutate globals directly
+- Competing processor invocations claim one article only once.
+- Stale `processing` recovery increments retry state once.
+- Analysis saved but Obsidian incomplete.
+- Obsidian complete but LINE incomplete.
+- LINE sent but local checkpoint missing (known duplicate risk).
+- LINE checkpoint complete but AnkiFlow incomplete.
+- AnkiFlow timeout after server-side creation returns duplicate on retry.
+- Selector empty three times becomes `SELECTOR_SUSPECT`.
+- Prompt injection, malformed feed/HTML, invalid raw signature, hostile YAML/HTML values, and unsafe URLs are rejected/escaped.
 
----
+## Fixtures and side effects
 
-## Playwright — E2E Tests
+- Keep dated fixtures for Anthropic Research/News, RSS 2.0, Atom, empty and malformed inputs.
+- Never store secret values or complete private articles in fixtures/snapshots.
+- Automated tests never call real Anthropic, vault, LINE, AnkiFlow, remote D1, or production Worker endpoints.
+- Playwright MCP is exploratory agent tooling, not the CI E2E runner.
 
-### Setup assumption
+## Workflow
 
-Dev server must be running at `localhost:3000` before Playwright runs.
-AnkiConnect is NOT assumed to be available — mock or skip AnkiConnect-dependent flows.
+1. Reproduce the target behavior with the smallest test.
+2. Confirm the test fails for the intended reason when fixing a bug.
+3. Run the narrow test, related suite, then full `bun run verify` when available.
+4. Report exact commands, test counts/results, and anything not run.
 
-### What to test
-
-- Full Create → Preview flow per FormType
-- History page: list, detail view
-- Admin CRUD flows (sign in as the account whose email matches `ADMIN_EMAIL` — auth is a session cookie, there is no `x-api-secret`)
-- Settings page: toggle states persist after reload
-
-### What NOT to test
-
-- Actual Anki export (requires live AnkiConnect — too brittle for CI)
-- Unsplash/TTS API calls (mock at network level with Playwright route interception)
-
-### Selectors
-
-- Prefer `data-testid` attributes over CSS selectors or text content
-- If a `data-testid` is missing, add it to the component before writing the test
-
-### On failure
-
-- Run with `--headed` to observe the browser
-- Check browser console for JS errors before inspecting selectors
-- If timeout: check if the element is conditionally rendered based on state
+Never weaken an assertion or replace a deterministic fixture with a live call merely to get a pass.

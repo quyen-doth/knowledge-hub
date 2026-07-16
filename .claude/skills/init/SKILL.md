@@ -1,97 +1,47 @@
 ---
 name: init
-description: >
-  Initialize a new feature or module in the ankiflow project.
-  Use when: user mentions @init, starts building a new feature,
-  needs the standard file/folder structure, or asks "where do I start".
-  Do NOT use for modifying existing code.
+description: Initialize the Knowledge Hub application scaffold or a new feature/module within it. Use for Workers/Hono setup, routes, adapters, integrations, admin screens, migrations, and test structure.
 ---
 
-# Skill: Init Feature
+# Initialize Scaffold or Feature
 
-## Goal
-Initialize new features following ankiflow conventions — consistent structure,
-read the right docs before creating files, never guess the architecture.
+## Required context
 
----
+Read `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/REFERENCE.md`, and the relevant API/database/verification docs. Inspect the current tree first: this repository may still be documentation-only, so never assume `package.json`, `src/`, migrations, or tests exist.
 
-## Step 1 — Required context
+## Decide the initialization level
 
-Before creating any file, read:
-1. `docs/PRD.md` — understand scope and business logic
-2. `docs/DESIGN.md` — if the feature has UI
-3. `docs/API.md` — if the feature adds a new API endpoint
-4. `docs/DATABASE.md` — if the feature touches Firestore
+- **Repository scaffold**: create the phase-1 Workers/Hono/D1 structure and stable Bun scripts defined in the docs.
+- **HTTP route/client**: follow the `api` skill and reuse services/schemas.
+- **D1 table/query/migration**: follow the `database` skill.
+- **Watcher adapter**: implement only URL/metadata discovery behind `SourceAdapter`.
+- **Processor/integration**: follow the `pipeline` skill.
+- **Admin screen/action**: follow the `admin-ui` skill.
 
----
+Do not create a full repository scaffold when the request is for one narrow feature.
 
-## Step 2 — Ask before creating
+## Scaffold rules
 
-Confirm with the user:
-> "Which layer does this feature belong to: UI component, API route, or both?"
+- Cloudflare Workers + Hono + TypeScript strict mode.
+- Bun scripts for dev, typecheck, test, verify, and deploy dry-run.
+- Wrangler bindings/cron configuration with placeholder names only; no real secrets.
+- D1 migrations and typed parameterized query helpers; no ORM.
+- Vitest with Workers pool and fixture directories.
+- Hono JSX SSR and static CSS; no frontend SPA scaffold.
+- `browser` adapter exists only as an explicit phase-2 placeholder.
 
----
+## Feature layout principles
 
-## Step 3 — Create the standard structure
+- Keep route/JSX, domain service, database helper, provider client, schema/type, and tests separate.
+- Follow existing naming/layout once code exists; do not duplicate a parallel architecture from the document tree.
+- Reuse shared URL, auth, error, JSON codec, and external-client helpers.
+- Add minimal boilerplate that compiles; do not prebuild unused phase-2 abstractions.
 
-### UI feature (Next.js App Router):
-```
-app/
-└── [feature-name]/
-    ├── page.tsx          ← main route
-    ├── layout.tsx        ← only if a dedicated layout is needed
-    └── components/       ← feature-local components
-        └── [Component].tsx
+## Completion
 
-components/                  ← shared components
-└── [category]/              ← e.g. create/, preview/, admin/, ui/
-    └── [Component].tsx      ← flat file, do NOT create a folder + index.tsx
-```
+1. Verify every created path is needed by the requested scope.
+2. Run the narrowest available check, then full applicable verification.
+3. Update docs only for actual new behavior; label planned pieces honestly.
+4. Report created files, commands/results, TODOs, and external actions not performed.
 
-### API route (Next.js App Router — no Fastify in this project):
-```
-app/
-└── api/
-    └── [feature-name]/
-        └── route.ts      ← Next.js route handler, use helpers in lib/api-response.ts, lib/auth-guard.ts
-```
-> See the `api` skill for convention details (response format, auth guard, validation).
-
-### Naming conventions:
-- Folder: `kebab-case`
-- Component file: `PascalCase.tsx`
-- API route: `route.ts` (Next.js convention)
-- Utility/helper: `camelCase.ts`
-
----
-
-## Step 4 — Create files with minimal boilerplate
-
-Create the skeleton only — do NOT write unconfirmed business logic:
-
-```tsx
-// page.tsx boilerplate
-export default function [FeatureName]Page() {
-  return <div>[FeatureName]</div>
-}
-```
-
----
-
-## Step 5 — Report
-
-After creating:
-```
-✅ Initialized: [feature-name]
-New files:
-- app/[feature-name]/page.tsx
-- app/[feature-name]/components/...
-```
-
----
-
-## Hard rules
-
-- Do **NOT** create files before reading `docs/PRD.md`
-- Do **NOT** create more than the current step requires
-- **MUST** ask if the feature name or scope is unclear
+Never initialize Git, install dependencies over the network, deploy, migrate remotely, or set secrets unless those actions are explicitly in scope.

@@ -2,44 +2,24 @@
     "hooks": {
         "PreToolUse": [
             {
-                "matcher": "Read|Edit|Write|Bash|Grep",
+                "matcher": "^Bash$|^apply_patch$",
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "node '/Users/hong-quyen/Documents/study/flashcard/ankiflow/scripts/agent-hooks/block-env.mjs'"
+                        "command": "sh -c 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); guard=\"$root/scripts/agent-hooks/block-env.mjs\"; if [ ! -f \"$guard\" ]; then echo \"Blocked: repository secret guard not found\" >&2; exit 2; fi; exec node \"$guard\"'",
+                        "timeout": 10,
+                        "statusMessage": "Checking local secret-file access"
                     }
                 ]
             },
             {
-                "matcher": "Edit|Write",
+                "matcher": "^apply_patch$",
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "INPUT=$(cat); PATH_VAL=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // \"\"'); echo \"$PATH_VAL\" | grep -qE '(^|/)docs/' && echo 'CLAUDE.md rule: Need user approval before editing docs/' >&2 && exit 2 || exit 0"
-                    }
-                ]
-            },
-            {
-                "matcher": "Edit|Write|Bash",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "INPUT=$(cat); CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.content // .tool_input.new_string // .tool_input.command // \"\"'); echo \"$CONTENT\" | grep -qiE 'deleteDoc|deleteField|writeBatch.*delete|FieldValue\\.delete|firestore.*\\.delete\\(' && echo 'CLAUDE.md rule: deleting Firestore documents requires user confirmation first' >&2 && exit 2 || exit 0"
-                    },
-                    {
-                        "type": "command",
-                        "command": "INPUT=$(cat); CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.content // .tool_input.new_string // .tool_input.command // \"\"'); echo \"$CONTENT\" | grep -qiE \"action['\\\"]?\\s*:\\s*['\\\"]?deleteNotes|action['\\\"]?\\s*:\\s*['\\\"]?deleteDecks|ankiconnect.*delete|/api/anki.*delete\" && echo 'CLAUDE.md rule: deleting Anki notes/decks via AnkiConnect requires user confirmation first' >&2 && exit 2 || exit 0"
-                    }
-                ]
-            }
-        ],
-        "SessionStart": [
-            {
-                "matcher": "compact",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "echo '⚠️ REMINDER — Mandatory Workflow:'; sed -n '/## Mandatory Workflow/,/### Hard Rules/p' CLAUDE.md"
+                        "command": "sh -c 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); guard=\"$root/scripts/agent-hooks/docs-guard.mjs\"; if [ ! -f \"$guard\" ]; then echo \"Blocked: repository docs guard not found\" >&2; exit 2; fi; exec node \"$guard\"'",
+                        "timeout": 10,
+                        "statusMessage": "Checking docs/ approval rule"
                     }
                 ]
             }
@@ -50,7 +30,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "bash $HOME/.claude/scripts/notify.sh \"🔔 [AnkiFlow] Codex\" \"Need approval\""
+                        "command": "sh -c 'script=\"$HOME/.claude/scripts/notify.sh\"; [ ! -f \"$script\" ] || exec bash \"$script\" \"🔔 [Knowledge Hub] Codex\" \"Need approval\"'"
                     }
                 ]
             }
@@ -60,7 +40,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "bash $HOME/.claude/scripts/notify.sh \"✅ [AnkiFlow] Codex\" \"Task completed\""
+                        "command": "sh -c 'script=\"$HOME/.claude/scripts/notify.sh\"; [ ! -f \"$script\" ] || exec bash \"$script\" \"✅ [Knowledge Hub] Codex\" \"Task completed\"'"
                     }
                 ]
             }
