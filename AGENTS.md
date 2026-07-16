@@ -6,13 +6,13 @@ This file provides durable guidance to Codex and other AI coding agents working 
 
 **Knowledge Hub** is a single-user, headless knowledge-ingestion pipeline with a minimal admin UI. It discovers new web articles, extracts readable text, produces Vietnamese analysis with Anthropic, writes Markdown into an Obsidian vault through GitHub, sends notifications through LINE, and submits technical-term drafts to AnkiFlow.
 
-The planned runtime is **Cloudflare Workers** with **Hono** and **D1**. Scheduled jobs are coordinated through article state in D1; Cloudflare Queues are explicitly out of scope for phase 1.
+The runtime is **Cloudflare Workers** with **Hono** and **D1**. Scheduled jobs are coordinated through article state in D1; Cloudflare Queues are explicitly out of scope for phase 1.
 
 Main flow:
 
 `Watcher / LINE / bookmarklet -> articles(status=new) -> processor -> extract -> LLM -> Obsidian -> LINE -> AnkiFlow -> processed`
 
-Git and the Phase 1 application foundation are initialized: the repository has a Workers/Hono entry point, Bun package manifest and lockfile, D1 migration, admin-session scaffold, and Worker integration tests. Watcher, processor, external integrations, and the complete admin UI remain unimplemented until their corresponding phases are verified. Do not describe later planned modules as existing.
+Git, the application foundation, and the watcher are implemented. The repository has a Workers/Hono entry point, Bun package manifest and lockfile, numbered D1 migrations, admin-session scaffold, RSS/Atom and HTML-list adapters, watcher orchestration, dated Anthropic fixtures, and Worker integration tests. The browser adapter is intentionally a placeholder. The processor, external integrations, ingest routes, and complete admin UI remain unimplemented until their corresponding phases are verified. Do not describe later planned modules as existing.
 
 ## Sources of Truth
 
@@ -36,7 +36,7 @@ Do not modify the AnkiFlow repository as part of a Knowledge Hub task unless the
 - `docs/REFERENCE.md` is the concise operational and architecture reference.
 - `docs/CONTRIBUTING.md` defines the Git and contribution workflow.
 - `docs/VERIFICATION.md` defines verification layers, scenarios, and evidence requirements.
-- `docs/API.md` and `docs/DATABASE.md` describe the planned HTTP contracts and D1 schema. Until runtime code exists, they must label planned behavior rather than claiming implementation.
+- `docs/API.md` distinguishes implemented HTTP/scheduled surfaces from planned contracts; `docs/DATABASE.md` describes the executable D1 migrations and state rules.
 
 Keep each fact in the narrowest authoritative document. Link to it instead of copying large contract or schema sections across multiple files.
 
@@ -52,7 +52,7 @@ Keep each fact in the narrowest authoritative document. Link to it instead of co
 
 Preserve literal external field names and response strings required by an API contract.
 
-## Planned Stack and Commands
+## Stack and Commands
 
 - Cloudflare Workers, Hono, TypeScript strict mode
 - D1 / SQLite with SQL migrations and typed query helpers; no ORM
@@ -61,7 +61,7 @@ Preserve literal external field names and response strings required by an API co
 - Vitest with `@cloudflare/vitest-pool-workers`
 - Hono JSX server-side rendering for the admin UI; no SPA framework
 
-Once the scaffold exists, run commands from the repository root and prefer scripts declared in `package.json`. The scaffold should expose stable Bun scripts for development, type checking, tests, and build/deploy checks. Until then, do not invent a successful command history. Use Bun, not npm or pnpm.
+Run commands from the repository root and prefer scripts declared in `package.json`. Stable Bun scripts exist for development, type checking, tests, and build/deploy checks. Report only commands actually run and their exact results. Use Bun, not npm or pnpm.
 
 Production deploys, remote D1 migrations, and secret updates require explicit user approval immediately before execution.
 

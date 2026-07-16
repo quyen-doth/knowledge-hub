@@ -22,5 +22,14 @@ describe('initial D1 migration', () => {
       'https://www.anthropic.com/news',
     ]);
     expect(sources.every((source) => source.enabled === 1)).toBe(true);
+    expect(sources.every((source) => source.consecutive_empty_count === 0)).toBe(true);
+
+    const researchConfig = JSON.parse(sources[0]?.config ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect(researchConfig.item_selector).toBe(
+      'a[href^="/research/"]:not([href^="/research/team/"])',
+    );
   });
 });

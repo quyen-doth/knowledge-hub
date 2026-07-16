@@ -20,7 +20,15 @@ export interface SourceRow {
   enabled: 0 | 1;
   last_checked_at: string | null;
   last_error: string | null;
+  consecutive_empty_count: number;
   created_at: string;
+}
+
+export interface WatcherRunStats {
+  sources_checked: number;
+  new_articles: number;
+  skipped: number;
+  failed: number;
 }
 
 export interface SettingRow {

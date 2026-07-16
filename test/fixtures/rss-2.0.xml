@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Knowledge Hub Test Feed</title>
+    <link>https://example.com/</link>
+    <item>
+      <title>First article</title>
+      <link>https://example.com/articles/first#section</link>
+      <pubDate>Wed, 15 Jul 2026 10:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Duplicate first article</title>
+      <link>https://example.com/articles/first</link>
+      <pubDate>Wed, 15 Jul 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Second article</title>
+      <link>/articles/second</link>
+      <pubDate>Tue, 14 Jul 2026 08:30:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

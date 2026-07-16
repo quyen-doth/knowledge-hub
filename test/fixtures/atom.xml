@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Knowledge Hub Atom Test Feed</title>
+  <entry>
+    <title>Atom article</title>
+    <link rel="alternate" href="https://example.com/atom/article" />
+    <updated>2026-07-16T01:02:03Z</updated>
+  </entry>
+  <entry>
+    <title>Entry without a usable URL</title>
+    <link rel="alternate" href="javascript:alert(1)" />
+    <updated>not-a-date</updated>
+  </entry>
+</feed>
