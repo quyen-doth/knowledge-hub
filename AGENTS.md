@@ -173,7 +173,7 @@ Run the narrowest relevant tests first, then the full suite. Report commands and
 
 ## Documentation and Review
 
-- Editing files under `docs/` requires user approval in the active request. PreToolUse guards enforce this (`scripts/agent-hooks/docs-guard.mjs`): Claude Code prompts for approval; Codex is blocked and must ask in chat before retrying.
+- Editing files under `docs/` requires user approval in the active request. PreToolUse guards enforce this (`scripts/agent-hooks/docs-guard.mjs`): Claude Code prompts for approval; Codex must obtain chat approval, then use a scoped, expiring, one-use `.codex-docs-approval.json` marker. The guard consumes the marker before allowing the matching patch.
 - Keep `docs/ARCHITECTURE.md` synchronized with deliberate architecture or contract changes.
 - Treat `docs/prompt.md` as historical input; do not expand it into a second competing specification.
 - Do not rewrite product decisions or phase boundaries as an incidental code change. Surface the proposed decision and its consequences first.

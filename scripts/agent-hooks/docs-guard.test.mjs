@@ -1,16 +1,34 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { evaluateHookInput, isDocsPath } from './docs-guard.mjs';
+import {
+  evaluateHookInput,
+  isDocsPath,
+  readDocsApproval,
+} from './docs-guard.mjs';
 
 const scriptPath = fileURLToPath(new URL('./docs-guard.mjs', import.meta.url));
 
-function runCli(input) {
+function runCli(input, approvalFile) {
   return spawnSync(process.execPath, [scriptPath], {
     input: typeof input === 'string' ? input : JSON.stringify(input),
     encoding: 'utf8',
+    env: {
+      ...process.env,
+      ...(approvalFile
+        ? { KNOWLEDGE_HUB_DOCS_APPROVAL_FILE: approvalFile }
+        : {}),
+    },
   });
 }
 
@@ -81,6 +99,44 @@ describe('Codex apply_patch payloads', () => {
     assert.equal(result.action, 'deny');
   });
 
+  test('allows only the exact approved docs path and marks approval for consumption', () => {
+    const approved = evaluateHookInput(
+      {
+        tool_name: 'apply_patch',
+        tool_input: {
+          command: `*** Begin Patch
+*** Update File: /repo/docs/ARCHITECTURE.md
+@@
++approved line
+*** End Patch`,
+        },
+      },
+      {
+        projectRoot: '/repo',
+        approvedDocsPaths: ['docs/ARCHITECTURE.md'],
+      },
+    );
+    assert.deepEqual(approved, { action: 'allow', consumeApproval: true });
+
+    const wrongPath = evaluateHookInput(
+      {
+        tool_name: 'apply_patch',
+        tool_input: {
+          command: `*** Begin Patch
+*** Update File: /repo/docs/API.md
+@@
++not approved
+*** End Patch`,
+        },
+      },
+      {
+        projectRoot: '/repo',
+        approvedDocsPaths: ['docs/ARCHITECTURE.md'],
+      },
+    );
+    assert.equal(wrongPath.action, 'deny');
+  });
+
   test('allows a patch outside docs/, even when content mentions docs paths', () => {
     const result = evaluateHookInput({
       tool_name: 'apply_patch',
@@ -101,6 +157,37 @@ describe('Codex apply_patch payloads', () => {
       tool_input: { command: 'not a patch' },
     });
     assert.equal(result.action, 'deny');
+  });
+});
+
+describe('one-use approval marker', () => {
+  test('accepts only a non-expired marker containing docs paths', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'docs-guard-'));
+    const marker = join(directory, 'approval.json');
+    try {
+      writeFileSync(
+        marker,
+        JSON.stringify({
+          paths: ['docs/ARCHITECTURE.md'],
+          expires_at: '2100-01-01T00:00:00.000Z',
+        }),
+      );
+      assert.deepEqual(readDocsApproval(marker, Date.parse('2099-01-01T00:00:00Z')), {
+        paths: ['docs/ARCHITECTURE.md'],
+      });
+      assert.equal(readDocsApproval(marker, Date.parse('2101-01-01T00:00:00Z')), null);
+
+      writeFileSync(
+        marker,
+        JSON.stringify({
+          paths: ['README.md'],
+          expires_at: '2100-01-01T00:00:00.000Z',
+        }),
+      );
+      assert.equal(readDocsApproval(marker, Date.parse('2099-01-01T00:00:00Z')), null);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
 
@@ -128,6 +215,40 @@ describe('CLI behavior', () => {
     });
     assert.equal(result.status, 2);
     assert.match(result.stderr, /requires user approval/);
+  });
+
+  test('consumes a matching approval marker and rejects reuse', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'docs-guard-cli-'));
+    const marker = join(directory, 'approval.json');
+    const input = {
+      tool_name: 'apply_patch',
+      tool_input: {
+        command: `*** Begin Patch
+*** Update File: docs/ARCHITECTURE.md
+@@
++x
+*** End Patch`,
+      },
+    };
+
+    try {
+      writeFileSync(
+        marker,
+        JSON.stringify({
+          paths: ['docs/ARCHITECTURE.md'],
+          expires_at: '2100-01-01T00:00:00.000Z',
+        }),
+      );
+      const allowed = runCli(input, marker);
+      assert.equal(allowed.status, 0);
+      assert.equal(existsSync(marker), false);
+
+      const reused = runCli(input, marker);
+      assert.equal(reused.status, 2);
+      assert.match(reused.stderr, /requires user approval/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   test('stays silent with exit code 0 when allowed', () => {
