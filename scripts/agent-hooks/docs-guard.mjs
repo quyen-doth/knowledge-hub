@@ -4,20 +4,67 @@
 // Claude Code Edit/Write payloads get permissionDecision "ask" so approval happens in the
 // permission prompt. Codex apply_patch payloads are denied with exit 2 because the Codex hook
 // protocol has no ask decision; the agent must obtain approval in chat before retrying.
-import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { readFileSync, unlinkSync } from 'node:fs';
+import { isAbsolute, relative, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { extractPatchPaths } from './block-env.mjs';
 
 const DOCS_PATH_PATTERN = /(^|[\\/])docs[\\/]/;
+const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const DEFAULT_APPROVAL_FILE = resolve(PROJECT_ROOT, '.codex-docs-approval.json');
 
 export function isDocsPath(path) {
     return typeof path === 'string' && DOCS_PATH_PATTERN.test(path);
 }
 
-export function evaluateHookInput(input) {
+function normalizeProjectPath(path, projectRoot) {
+    if (!isAbsolute(path)) {
+        return path.replaceAll('\\', '/').replace(/^\.\//, '');
+    }
+
+    const projectRelative = relative(projectRoot, path).replaceAll('\\', '/');
+    if (projectRelative === '..' || projectRelative.startsWith('../')) {
+        return path.replaceAll('\\', '/');
+    }
+
+    return projectRelative;
+}
+
+export function readDocsApproval(filePath, now = Date.now()) {
+    try {
+        const value = JSON.parse(readFileSync(filePath, 'utf8'));
+        if (
+            typeof value !== 'object' ||
+            value === null ||
+            !Array.isArray(value.paths) ||
+            value.paths.length === 0 ||
+            !value.paths.every((path) => typeof path === 'string' && isDocsPath(path)) ||
+            typeof value.expires_at !== 'string'
+        ) {
+            return null;
+        }
+
+        const expiresAt = Date.parse(value.expires_at);
+        if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+            return null;
+        }
+
+        return { paths: value.paths };
+    } catch {
+        return null;
+    }
+}
+
+export function evaluateHookInput(input, options = {}) {
     const tool = input?.tool_name;
     const toolInput = input?.tool_input ?? {};
+    const projectRoot = options.projectRoot ?? PROJECT_ROOT;
+    const approvedDocsPaths = new Set(
+        (options.approvedDocsPaths ?? []).map((path) =>
+            normalizeProjectPath(path, projectRoot),
+        ),
+    );
 
     if (tool === 'Edit' || tool === 'Write') {
         if (isDocsPath(toolInput.file_path)) {
@@ -40,11 +87,18 @@ export function evaluateHookInput(input) {
             };
         }
 
-        const docsPath = paths.find(isDocsPath);
-        if (docsPath) {
+        const docsPaths = paths.filter(isDocsPath);
+        if (docsPaths.length > 0) {
+            const allApproved = docsPaths.every((path) =>
+                approvedDocsPaths.has(normalizeProjectPath(path, projectRoot)),
+            );
+            if (allApproved && approvedDocsPaths.size > 0) {
+                return { action: 'allow', consumeApproval: true };
+            }
+
             return {
                 action: 'deny',
-                reason: `AGENTS.md rule: editing "${docsPath}" under docs/ requires user approval. Ask the user before retrying.`,
+                reason: `AGENTS.md rule: editing "${docsPaths[0]}" under docs/ requires user approval. Ask the user, then create a scoped one-use approval marker before retrying.`,
             };
         }
 
@@ -63,7 +117,13 @@ function main() {
         process.exit(2);
     }
 
-    const result = evaluateHookInput(input);
+    const approvalFile =
+        process.env.KNOWLEDGE_HUB_DOCS_APPROVAL_FILE ?? DEFAULT_APPROVAL_FILE;
+    const approval = readDocsApproval(approvalFile);
+    const result = evaluateHookInput(input, {
+        approvedDocsPaths: approval?.paths ?? [],
+        projectRoot: PROJECT_ROOT,
+    });
     if (result.action === 'ask') {
         process.stdout.write(
             JSON.stringify({
@@ -80,6 +140,15 @@ function main() {
     if (result.action === 'deny') {
         process.stderr.write(result.reason);
         process.exit(2);
+    }
+
+    if (result.consumeApproval) {
+        try {
+            unlinkSync(approvalFile);
+        } catch {
+            process.stderr.write('Blocked: failed to consume the one-use docs approval marker.');
+            process.exit(2);
+        }
     }
 
     process.exit(0);

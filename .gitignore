@@ -20,6 +20,7 @@ coverage/
 
 # Local agent preferences
 .claude/settings.local.json
+.codex-docs-approval.json
 
 # Plan working documents (kept out of Git)
 plans/
