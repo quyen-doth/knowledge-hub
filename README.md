@@ -1,108 +1,99 @@
 # Smart Knowledge Hub
 
-Smart Knowledge Hub là pipeline thu thập và xử lý tri thức dành cho một người dùng. Hệ thống theo dõi nguồn web, trích xuất bài viết, tạo bản tóm tắt tiếng Việt bằng Anthropic, ghi ghi chú vào Obsidian qua GitHub, gửi thông báo LINE và chuyển thuật ngữ kỹ thuật sang AnkiFlow dưới dạng draft.
+個人向けのナレッジ収集・整理パイプラインです。Web記事を定期的に検出し、将来的には本文抽出、Anthropicによるベトナム語要約、Obsidianへの保存、LINE通知、AnkiFlowへの技術用語ドラフト登録までを自動化します。
 
-## Trạng thái hiện tại
+> 現在はアプリ基盤、管理者認証、D1スキーマ、Watcherまで実装済みです。Processorと外部サービス連携は設計済み・未実装です。
 
-Repository đã hoàn thành nền tảng ứng dụng và watcher: Workers/Hono scaffold, Bun package, hai migration D1, admin session, RSS/Atom adapter, HTML-list adapter, browser placeholder, backfill/dedupe, source health và run logging. Processor, các external integrations, ingest routes và admin UI đầy đủ vẫn đang được triển khai theo các phase tiếp theo.
-
-Nguồn thiết kế chính là [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). [`docs/prompt.md`](docs/prompt.md) chỉ lưu đầu vào ban đầu và kết thúc giữa phần LINE, vì vậy không được dùng để thay thế tài liệu kiến trúc.
-
-## Luồng chính
+## アーキテクチャ概要
 
 ```text
-Watcher / LINE / bookmarklet
-  -> articles(status=new)
-  -> processor
-  -> extract
-  -> Anthropic analysis
-  -> GitHub / Obsidian
-  -> LINE
-  -> AnkiFlow term drafts
-  -> processed
+RSS / Atom / HTML sources
+          │
+          ▼
+   Watcher（実装済み）
+          │ discover / deduplicate
+          ▼
+ Cloudflare D1: articles(status=new)
+          │
+          ▼
+   Processor（未実装）
+ fetch → extract → LLM analysis
+          │
+          ├── GitHub Contents API → Obsidian
+          ├── LINE → summary notification
+          └── AnkiFlow → term drafts
 ```
 
-Ba cron được cấu hình; hiện chỉ watcher đã được triển khai:
+Cloudflare Queuesは使わず、D1の状態管理とCron Triggersで小規模な個人利用に適した構成にしています。
 
-- `0 * * * *`: kiểm tra các nguồn đang bật mỗi giờ — đã triển khai.
-- `*/5 * * * *`: xử lý tối đa ba article đang chờ hoặc có lỗi retryable — chưa triển khai.
-- `0 22 * * *`: gửi daily digest khi được bật — chưa triển khai.
+## 実装状況
 
-Không sử dụng Cloudflare Queues trong phase 1; D1 và state machine của `articles` đóng vai trò hàng đợi.
+| 領域 | 状態 | 内容 |
+| --- | --- | --- |
+| Application foundation | 実装済み | Cloudflare Workers、Hono、Bun、Wrangler |
+| Database | 実装済み | D1 migrations、typed query helpers、settings seed |
+| Admin authentication | 実装済み | HMAC署名Cookie、ログイン、最小Dashboard |
+| Watcher | 実装済み | RSS 2.0、Atom、HTML list、重複排除、backfill |
+| Source health | 実装済み | エラー分離、run logging、`SELECTOR_SUSPECT` |
+| Browser adapter | Placeholder | 将来のPlaywright/GitHub Actions連携用 |
+| Processor / integrations | 未実装 | Anthropic、Obsidian、LINE、AnkiFlow |
+| Full admin UI | 未実装 | Sources、Articles、Settings管理画面 |
 
-## Stack
+## 技術スタック
 
-- Cloudflare Workers và Hono, TypeScript strict mode
-- D1/SQLite với numbered migrations và SQL tham số hóa, không ORM
-- Bun cho package management và scripts
-- Wrangler cho local development, migrations và deployment
-- Vitest với `@cloudflare/vitest-pool-workers`
-- Hono JSX SSR cho admin UI, không dùng SPA framework
+- Cloudflare Workers / Hono / TypeScript strict mode
+- Cloudflare D1 / SQLite / numbered SQL migrations
+- Bun / Wrangler
+- Vitest / `@cloudflare/vitest-pool-workers`
+- `fast-xml-parser` / `linkedom`
+- Hono JSX SSR（SPAフレームワーク不使用）
 
-## Tài liệu
+## 設計上のポイント
 
-| Tài liệu | Vai trò |
-| --- | --- |
-| [`AGENTS.md`](AGENTS.md) | Quy tắc chuẩn cho AI coding agents |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Thiết kế kỹ thuật và quyết định phase 1 |
-| [`docs/prompt.md`](docs/prompt.md) | Đầu vào lịch sử, không phải specification hoàn chỉnh |
-| [`docs/REFERENCE.md`](docs/REFERENCE.md) | Tham chiếu vận hành và kiến trúc ngắn gọn |
-| [`docs/API.md`](docs/API.md) | HTTP, auth và external integration contracts |
-| [`docs/DATABASE.md`](docs/DATABASE.md) | D1 schema, state machine và migration rules |
-| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Git workflow và quy tắc đóng góp |
-| [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | Chiến lược kiểm chứng |
+- AdapterはURLとメタデータの検出だけを担当し、記事処理とは分離しています。
+- `articles.url` のUNIQUE制約とURL正規化で再実行時の重複を防ぎます。
+- 初回取得は `backfill_limit` を適用し、対象外の記事も `skipped` として記録します。
+- 1つのsourceが失敗しても他のsourceを継続し、結果を `runs` に保存します。
+- 既に記事があるsourceで3回連続0件になると `SELECTOR_SUSPECT` を記録します。
+- 外部入力は信頼せず、URL scheme、credential、config、response size、timeoutを境界で検証します。
+- 将来のProcessorはatomic claim、stale recovery、checkpointによる再開を前提に設計しています。
 
-## Lệnh phát triển
+詳しい判断と境界は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) を参照してください。
 
-`package.json` cung cấp các lệnh đã được kiểm chứng trong Phase 1:
+## ローカル開発
 
 ```bash
+bun install
+bunx wrangler d1 migrations apply knowledge-hub --local
 bun run dev
+```
+
+設定値は [`.dev.vars.example`](.dev.vars.example) を参考にし、実際のsecretは `.dev.vars` またはWrangler secret storageで管理します。
+
+```bash
 bun run typecheck
 bun run test
 bun run verify
 bun run deploy:check
 ```
 
-Không dùng `npm` hoặc `pnpm`. Deployment production, migration D1 remote và thay đổi Wrangler secrets luôn cần xác nhận ngay trước khi thực hiện.
+Production deploy、remote D1 migration、secret変更は明示的な承認後にのみ実行します。
 
-## Cấu hình và secrets
+## ドキュメント
 
-Các binding/secret dự kiến gồm:
+| ファイル | 内容 |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | アーキテクチャと実装ロードマップ |
+| [`docs/API.md`](docs/API.md) | HTTP・外部連携contract |
+| [`docs/DATABASE.md`](docs/DATABASE.md) | D1 schemaとstate rules |
+| [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | テスト戦略とacceptance criteria |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Git・開発workflow |
 
-```text
-ANTHROPIC_API_KEY
-LLM_MODEL
-GITHUB_TOKEN
-GITHUB_REPO
-GITHUB_BRANCH
-OBSIDIAN_INBOX_PATH
-LINE_CHANNEL_SECRET
-LINE_CHANNEL_ACCESS_TOKEN
-LINE_USER_ID
-ANKIFLOW_API_URL
-ANKIFLOW_INTEGRATION_TOKEN
-INGEST_TOKEN
-ADMIN_PASSWORD
-SESSION_SECRET
-```
+## スコープ外
 
-Secret production được lưu bằng Wrangler secret storage. Secret local đặt trong `.dev.vars`; không commit, in ra log hoặc chép giá trị thật vào bookmarklet, fixtures hay tài liệu.
-
-## Runbook hiện tại
-
-- Chạy migration local: `bunx wrangler d1 migrations apply knowledge-hub --local`.
-- Kiểm tra đầy đủ trước khi commit: `bun run verify`.
-- Watcher chạy adapter theo từng source độc lập; lỗi một source được ghi vào `last_error` và không chặn source khác.
-- Lần kiểm tra đầu áp `backfill_limit`; item vượt giới hạn được lưu `skipped` để không bị phát hiện lặp vô hạn.
-- Ba lần discover rỗng liên tiếp ở source từng có article ghi `SELECTOR_SUSPECT`; một lần discover thành công sẽ reset cảnh báo.
-- Admin Sources, processor và external integrations chưa có runtime UI/flow hoàn chỉnh; không dùng các phần contract tương ứng như thể đã triển khai.
-
-## Ngoài phạm vi phase 1
-
-- Multi-user
+- Multi-user対応
 - Cloudflare Queues
-- Reader/highlight UI
-- Browser adapter thật hoặc Chrome extension
-- RAG, embeddings, related articles và recommendation tự động
-- Spaced repetition cho Obsidian memo
+- Web reader / highlight UI
+- Browser adapter本体、Chrome extension
+- RAG、embeddings、recommendation
+- Obsidianノート自体のspaced repetition
